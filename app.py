@@ -506,17 +506,44 @@ def export_mp4():
             """)
             
             # Download button
-            with open(output_path, 'r', encoding='utf-8') as file:
-                file_content = file.read()
-                st.download_button(
-                    label="تحميل ملخص الفيديو",
-                    data=file_content.encode('utf-8'),
-                    file_name=output_filename,
-                    mime="text/plain",
-                    use_container_width=True
-                )
+            if output_path.endswith('.mp4'):
+                # Download MP4 video file
+                with open(output_path, 'rb') as file:
+                    st.download_button(
+                        label="تحميل الفيديو MP4",
+                        data=file.read(),
+                        file_name=output_filename,
+                        mime="video/mp4",
+                        use_container_width=True
+                    )
+            elif output_path.endswith('.m4a'):
+                # Download M4A audio file  
+                with open(output_path, 'rb') as file:
+                    st.download_button(
+                        label="تحميل ملف الصوت M4A",
+                        data=file.read(),
+                        file_name=output_filename.replace('.mp4', '.m4a'),
+                        mime="audio/mp4",
+                        use_container_width=True
+                    )
+            else:
+                # Download text file
+                with open(output_path, 'r', encoding='utf-8') as file:
+                    file_content = file.read()
+                    st.download_button(
+                        label="تحميل ملخص الفيديو",
+                        data=file_content.encode('utf-8'),
+                        file_name=output_filename,
+                        mime="text/plain",
+                        use_container_width=True
+                    )
             
-            st.success("تم إنشاء ملخص الفيديو بنجاح! سيتم إضافة إنتاج الفيديو الكامل في التحديث القادم.")
+            if output_path.endswith('.mp4'):
+                st.success("تم إنشاء الفيديو بنجاح! يمكنك الآن تحميل ملف MP4 مع النص المتزامن.")
+            elif output_path.endswith('.m4a'):
+                st.success("تم إنشاء ملف صوتي مع النص المتزامن! يمكنك تحميل ملف M4A.")
+            else:
+                st.success("تم إنشاء ملخص الفيديو بنجاح!")
             
             # Show sample preview of how video would look
             st.markdown("**معاينة كيف سيبدو الفيديو:**")

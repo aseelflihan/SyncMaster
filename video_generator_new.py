@@ -1,7 +1,6 @@
 import os
 import tempfile
 import subprocess
-import shutil
 from typing import List, Dict
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
@@ -12,16 +11,27 @@ class VideoGenerator:
     def __init__(self):
         """Initialize the video generator"""
         self.temp_dir = tempfile.mkdtemp()
+        self.frame_rate = 10  # Lower frame rate for faster processing
         
     def create_synchronized_video(self, audio_path: str, word_timestamps: List[Dict], 
                                 text: str, style_config: Dict, output_filename: str) -> str:
         """
         Create a synchronized MP4 video with animated text
+        
+        Args:
+            audio_path: Path to the audio file
+            word_timestamps: List of word timestamp dictionaries
+            text: The full text content
+            style_config: Dictionary with styling configuration
+            output_filename: Name for the output file
+            
+        Returns:
+            Path to the output MP4 file
         """
         try:
             output_path = os.path.join(self.temp_dir, output_filename)
             
-            # Create a simple slideshow video
+            # Try to create a simple slideshow video
             return self._create_simple_slideshow(audio_path, text, style_config, output_filename)
             
         except Exception as e:
@@ -60,12 +70,11 @@ class VideoGenerator:
         
         # Draw each line of text
         for i, line in enumerate(lines):
-            if line.strip():  # Only draw non-empty lines
-                bbox = draw.textbbox((0, 0), line, font=font)
-                text_width = bbox[2] - bbox[0]
-                x = (width - text_width) // 2
-                y = start_y + i * line_height
-                draw.text((x, y), line, fill=text_color, font=font)
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            x = (width - text_width) // 2
+            y = start_y + i * line_height
+            draw.text((x, y), line, fill=text_color, font=font)
         
         # Add title
         title = "SyncMaster - متزامن النص"
@@ -102,11 +111,9 @@ class VideoGenerator:
             if result.returncode == 0 and os.path.exists(output_path):
                 return output_path
             else:
-                print(f"FFmpeg error: {result.stderr}")
                 raise Exception(f"FFmpeg failed: {result.stderr}")
                 
         except Exception as e:
-            print(f"Video creation error: {e}")
             # If ffmpeg fails, try a simpler approach
             return self._create_fallback_video(audio_path, text, output_filename)
     
@@ -131,16 +138,16 @@ class VideoGenerator:
             if result.returncode == 0 and os.path.exists(output_path):
                 return output_path
             else:
-                print(f"Fallback FFmpeg error: {result.stderr}")
                 # Final fallback - copy the audio file as MP4
                 fallback_path = output_path.replace('.mp4', '.m4a')
+                import shutil
                 shutil.copy2(audio_path, fallback_path)
                 return fallback_path
                 
         except Exception as e:
-            print(f"Fallback video creation error: {e}")
             # Final fallback - copy the audio file
             fallback_path = output_path.replace('.mp4', '.m4a')
+            import shutil
             shutil.copy2(audio_path, fallback_path)
             return fallback_path
     
@@ -157,6 +164,7 @@ class VideoGenerator:
     def __del__(self):
         """Clean up temporary files"""
         try:
+            import shutil
             if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
         except:
