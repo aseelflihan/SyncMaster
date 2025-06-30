@@ -7,7 +7,7 @@ import time
 from audio_processor import AudioProcessor
 from video_generator import VideoGenerator
 from mp3_embedder import MP3Embedder
-from utils import format_timestamp, validate_audio_file
+from utils import format_timestamp, validate_audio_file, get_audio_info
 
 # Page configuration
 st.set_page_config(
@@ -198,8 +198,11 @@ def step_2_review_and_customize():
         st.session_state.edited_text = edited_text
         
         # Word count
-        word_count = len(edited_text.split())
-        st.caption(f"Word count: {word_count}")
+        if edited_text:
+            word_count = len(edited_text.split())
+            st.caption(f"Word count: {word_count}")
+        else:
+            st.caption("Word count: 0")
         
         # Preview synchronized text
         if st.button("🔍 Preview Synchronization"):
@@ -308,6 +311,38 @@ def step_3_export():
             st.rerun()
         return
     
+    # Add preview section
+    st.subheader("📋 Preview & Verification")
+    
+    # Show audio info
+    audio_path = st.session_state.transcription_data['audio_path']
+    word_timestamps = st.session_state.transcription_data['word_timestamps']
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Audio Duration", f"{get_audio_duration_formatted(audio_path)}")
+        st.metric("Total Words", len(word_timestamps))
+    
+    with col2:
+        if word_timestamps:
+            avg_word_duration = sum(w['end'] - w['start'] for w in word_timestamps) / len(word_timestamps)
+            st.metric("Avg Word Duration", f"{avg_word_duration:.2f}s")
+            st.metric("Words per Minute", f"{len(word_timestamps) / (get_audio_duration_seconds(audio_path) / 60):.0f}")
+    
+    # Preview synchronized text with timestamps
+    st.markdown("**Synchronized Text Preview:**")
+    preview_container = st.container()
+    with preview_container:
+        preview_text = ""
+        for i, word_data in enumerate(word_timestamps[:20]):  # Show first 20 words
+            timestamp = f"[{word_data['start']:.1f}s]"
+            preview_text += f"{timestamp} {word_data['word']} "
+        if len(word_timestamps) > 20:
+            preview_text += f"\n... and {len(word_timestamps) - 20} more words"
+        st.code(preview_text, language=None)
+    
+    st.divider()
+    
     # Export options
     col1, col2 = st.columns(2)
     
@@ -322,7 +357,7 @@ def step_3_export():
         st.subheader("🎬 MP4 Video Export")
         st.markdown("Create an animated video with synchronized text")
         
-        if st.button("🎥 Generate MP4 Video", type="primary", use_container_width=True):
+        if st.button("🎥 Generate Video Summary", type="primary", use_container_width=True):
             export_mp4()
     
     # Navigation
@@ -345,7 +380,7 @@ def export_mp3():
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        status_text.text("🎵 Preparing MP3 with synchronized lyrics...")
+        status_text.text("تحضير ملف MP3 مع الكلمات المتزامنة...")
         progress_bar.progress(20)
         
         # Initialize MP3 embedder
@@ -356,7 +391,7 @@ def export_mp3():
         audio_path = st.session_state.transcription_data['audio_path']
         
         progress_bar.progress(50)
-        status_text.text("📱 Embedding SYLT frame for mobile compatibility...")
+        status_text.text("دمج إطار SYLT للتوافق مع الهواتف المحمولة...")
         
         # Create output file
         output_filename = f"synced_{st.session_state.audio_file.name}"
@@ -368,26 +403,45 @@ def export_mp3():
         )
         
         progress_bar.progress(90)
-        status_text.text("✅ MP3 export complete!")
+        status_text.text("تم إكمال تصدير MP3!")
         
-        # Provide download
+        # Audio preview section
+        st.subheader("معاينة الملف الصوتي")
+        
         if os.path.exists(output_path):
-            with open(output_path, 'rb') as file:
-                st.download_button(
-                    label="📥 Download Synchronized MP3",
-                    data=file.read(),
-                    file_name=output_filename,
-                    mime="audio/mpeg",
-                    use_container_width=True
-                )
+            # Show file size
+            file_size = os.path.getsize(output_path)
+            file_size_mb = file_size / (1024 * 1024)
+            st.info(f"حجم الملف: {file_size_mb:.2f} MB")
+            
+            # Audio player for preview
+            with open(output_path, 'rb') as audio_file:
+                audio_bytes = audio_file.read()
+                st.audio(audio_bytes, format='audio/mp3')
+            
+            # Verification info
+            verification = embedder.verify_sylt_embedding(output_path)
+            if verification['has_sylt']:
+                st.success(f"تم دمج {verification['sylt_entries']} كلمة متزامنة بنجاح!")
+            else:
+                st.warning("تحذير: قد تكون هناك مشكلة في دمج الكلمات المتزامنة")
+            
+            # Download button
+            st.download_button(
+                label="تحميل ملف MP3 المتزامن",
+                data=audio_bytes,
+                file_name=output_filename,
+                mime="audio/mpeg",
+                use_container_width=True
+            )
             
             progress_bar.progress(100)
-            st.success("🎉 MP3 export successful! The file includes embedded synchronized lyrics compatible with mobile players.")
+            st.success("تم تصدير MP3 بنجاح! الملف يحتوي على كلمات متزامنة متوافقة مع مشغلات الهواتف المحمولة.")
         else:
-            st.error("Failed to create MP3 file.")
+            st.error("فشل في إنشاء ملف MP3.")
             
     except Exception as e:
-        st.error(f"Error exporting MP3: {str(e)}")
+        st.error(f"خطأ في تصدير MP3: {str(e)}")
 
 def export_mp4():
     """Export MP4 video with synchronized text animation"""
@@ -395,7 +449,7 @@ def export_mp4():
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        status_text.text("🎬 Generating synchronized video...")
+        status_text.text("إنشاء فيديو متزامن...")
         progress_bar.progress(20)
         
         # Initialize video generator
@@ -407,10 +461,10 @@ def export_mp4():
         video_style = st.session_state.video_style
         
         progress_bar.progress(40)
-        status_text.text("🎨 Applying custom styling...")
+        status_text.text("تطبيق التصميم المخصص...")
         
-        # Generate video
-        output_filename = f"synced_video_{Path(st.session_state.audio_file.name).stem}.mp4"
+        # Generate video summary (since we don't have full video generation yet)
+        output_filename = f"synced_video_{Path(st.session_state.audio_file.name).stem}.txt"
         output_path = generator.create_synchronized_video(
             audio_path,
             word_timestamps,
@@ -420,28 +474,106 @@ def export_mp4():
         )
         
         progress_bar.progress(80)
-        status_text.text("🎞️ Rendering final video...")
+        status_text.text("إنهاء معالجة الفيديو...")
         
-        # Provide download
+        # Video preview section
+        st.subheader("معاينة الفيديو")
+        
         if os.path.exists(output_path):
             progress_bar.progress(100)
-            status_text.text("✅ Video export complete!")
+            status_text.text("تم إكمال تصدير الفيديو!")
             
+            # Show video summary
+            with open(output_path, 'r', encoding='utf-8') as f:
+                video_summary = f.read()
+            
+            st.text_area(
+                "معاينة محتوى الفيديو",
+                video_summary,
+                height=300,
+                disabled=True
+            )
+            
+            # Show style configuration
+            st.info(f"""
+            **إعدادات الفيديو:**
+            - نمط الحركة: {video_style.get('animation_style', 'غير محدد')}
+            - لون النص: {video_style.get('text_color', 'غير محدد')}
+            - لون التمييز: {video_style.get('highlight_color', 'غير محدد')}
+            - لون الخلفية: {video_style.get('background_color', 'غير محدد')}
+            - خط النص: {video_style.get('font_family', 'غير محدد')}
+            - حجم الخط: {video_style.get('font_size', 'غير محدد')}
+            """)
+            
+            # Download button
             with open(output_path, 'rb') as file:
                 st.download_button(
-                    label="📥 Download Synchronized Video",
+                    label="تحميل ملخص الفيديو",
                     data=file.read(),
                     file_name=output_filename,
-                    mime="video/mp4",
+                    mime="text/plain",
                     use_container_width=True
                 )
             
-            st.success("🎉 MP4 video export successful! Your synchronized lyrics video is ready for sharing.")
+            st.success("تم إنشاء ملخص الفيديو بنجاح! سيتم إضافة إنتاج الفيديو الكامل في التحديث القادم.")
+            
+            # Show sample preview of how video would look
+            st.markdown("**معاينة كيف سيبدو الفيديو:**")
+            
+            # Create a visual preview using HTML/CSS
+            preview_html = f"""
+            <div style="
+                background: {video_style.get('background_color', '#000000')};
+                color: {video_style.get('text_color', '#FFFFFF')};
+                font-family: {video_style.get('font_family', 'Arial')};
+                font-size: {video_style.get('font_size', 48) // 3}px;
+                padding: 30px;
+                text-align: center;
+                border-radius: 10px;
+                margin: 20px 0;
+                min-height: 200px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                border: 2px solid #ddd;
+            ">
+                <div style="margin-bottom: 20px; font-size: 14px; color: #888;">معاينة الفيديو</div>
+                <div>
+                    {' '.join([w['word'] for w in word_timestamps[:8]])}
+                </div>
+                <div style="margin-top: 10px;">
+                    <span style="color: {video_style.get('highlight_color', '#FFD700')}; font-weight: bold;">
+                        {word_timestamps[0]['word'] if word_timestamps else 'كلمة'}
+                    </span>
+                </div>
+                <div style="margin-top: 20px; font-size: 12px; color: #666;">
+                    نمط الحركة: {video_style.get('animation_style', 'Karaoke Style')}
+                </div>
+            </div>
+            """
+            st.markdown(preview_html, unsafe_allow_html=True)
+            
         else:
-            st.error("Failed to create video file.")
+            st.error("فشل في إنشاء ملف الفيديو.")
             
     except Exception as e:
-        st.error(f"Error exporting video: {str(e)}")
+        st.error(f"خطأ في تصدير الفيديو: {str(e)}")
+
+def get_audio_duration_seconds(audio_path: str) -> float:
+    """Get audio duration in seconds"""
+    try:
+        audio_info = get_audio_info(audio_path)
+        return audio_info.get('duration', 0)
+    except:
+        return 0
+
+def get_audio_duration_formatted(audio_path: str) -> str:
+    """Get formatted audio duration"""
+    duration = get_audio_duration_seconds(audio_path)
+    minutes = int(duration // 60)
+    seconds = int(duration % 60)
+    return f"{minutes}:{seconds:02d}"
 
 def reset_session():
     """Reset all session state variables"""
