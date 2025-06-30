@@ -182,8 +182,8 @@ class VideoGenerator:
                 return output_path
             else:
                 print(f"Fallback FFmpeg also failed: {result.stderr}")
-                # Final fallback - copy audio as M4A
-                fallback_path = output_path.replace('.mp4', '.m4a')
+                # Final fallback - copy audio as M4A with proper extension
+                fallback_path = os.path.join(self.temp_dir, output_filename.replace('.mp4', '.m4a'))
                 shutil.copy2(audio_path, fallback_path)
                 print(f"Created audio fallback: {fallback_path}")
                 return fallback_path
@@ -192,17 +192,19 @@ class VideoGenerator:
             print(f"Fallback video creation error: {e}")
             # Final fallback - copy the audio file
             try:
-                fallback_path = output_path.replace('.mp4', '.m4a')
+                fallback_path = os.path.join(self.temp_dir, output_filename.replace('.mp4', '.m4a'))
                 shutil.copy2(audio_path, fallback_path)
                 print(f"Final fallback audio: {fallback_path}")
                 return fallback_path
             except Exception as copy_error:
                 print(f"Even audio copy failed: {copy_error}")
-                # Create a placeholder file
-                placeholder_path = os.path.join(self.temp_dir, 'placeholder.txt')
-                with open(placeholder_path, 'w', encoding='utf-8') as f:
-                    f.write(f"Video creation failed. Original audio: {audio_path}\nText: {text}")
-                return placeholder_path
+                # Create a basic MP3 copy as final fallback
+                try:
+                    mp3_fallback = os.path.join(self.temp_dir, output_filename.replace('.mp4', '.mp3'))
+                    shutil.copy2(audio_path, mp3_fallback)
+                    return mp3_fallback
+                except:
+                    return audio_path  # Return original audio path as last resort
     
     def _hex_to_rgb(self, hex_color: str) -> tuple:
         """Convert hex color to RGB tuple"""

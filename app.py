@@ -463,8 +463,8 @@ def export_mp4():
         progress_bar.progress(40)
         status_text.text("تطبيق التصميم المخصص...")
         
-        # Generate video summary (since we don't have full video generation yet)
-        output_filename = f"synced_video_{Path(st.session_state.audio_file.name).stem}.txt"
+        # Generate synchronized video
+        output_filename = f"synced_video_{Path(st.session_state.audio_file.name).stem}.mp4"
         output_path = generator.create_synchronized_video(
             audio_path,
             word_timestamps,
