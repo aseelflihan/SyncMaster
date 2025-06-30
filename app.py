@@ -506,10 +506,11 @@ def export_mp4():
             """)
             
             # Download button
-            with open(output_path, 'rb') as file:
+            with open(output_path, 'r', encoding='utf-8') as file:
+                file_content = file.read()
                 st.download_button(
                     label="تحميل ملخص الفيديو",
-                    data=file.read(),
+                    data=file_content.encode('utf-8'),
                     file_name=output_filename,
                     mime="text/plain",
                     use_container_width=True
