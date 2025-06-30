@@ -35,6 +35,41 @@ if 'video_style' not in st.session_state:
         'font_size': 48
     }
 
+if not hasattr(st, "divider"):
+    def _divider():
+        st.markdown("---")
+    st.divider = _divider
+
+# Patch st.button for Streamlit versions that don't support the 'type' argument (<=1.12)
+import inspect as _st_inspect
+if "type" not in _st_inspect.signature(st.button).parameters:
+    _orig_button = st.button
+
+    def _patched_button(label, *args, **kwargs):
+        # Remove kwargs not supported in this Streamlit version
+        kwargs.pop("type", None)
+        kwargs.pop("use_container_width", None)
+        return _orig_button(label, *args, **kwargs)
+
+    st.button = _patched_button
+
+# Provide st.rerun alias for older Streamlit versions
+if not hasattr(st, "rerun") and hasattr(st, "experimental_rerun"):
+    st.rerun = st.experimental_rerun
+
+# Patch st.download_button for unsupported kwargs in older Streamlit versions
+if hasattr(st, "download_button"):
+    import inspect as _dl_inspect
+    _dl_sig = _dl_inspect.signature(st.download_button)
+    if "use_container_width" not in _dl_sig.parameters:
+        _orig_download_button = st.download_button
+
+        def _patched_download_button(label, data, *args, **kwargs):
+            kwargs.pop("use_container_width", None)
+            return _orig_download_button(label, data, *args, **kwargs)
+
+        st.download_button = _patched_download_button
+
 def main():
     # Header
     st.title("🎵 SyncMaster")
