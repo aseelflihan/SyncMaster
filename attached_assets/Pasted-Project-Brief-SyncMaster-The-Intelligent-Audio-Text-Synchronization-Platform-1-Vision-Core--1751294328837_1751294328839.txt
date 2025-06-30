@@ -1,0 +1,40 @@
+Project Brief: "SyncMaster" – The Intelligent Audio-Text Synchronization Platform
+1. Vision & Core Objective
+Objective: To build a seamless, integrated web application that transforms any standard audio file (songs, podcasts, lectures) into a rich, interactive experience. Utilizing state-of-the-art AI, the platform will automatically transcribe and synchronize text with pinpoint accuracy, enabling users to export two primary formats: an MP3 audio file with embedded, phone-compatible synchronized lyrics and a dynamic MP4 video with visually synchronized text.
+The Core Problem It Solves:
+The common issue of "lyrics not showing up on my phone" stems from embedding lyrics as simple, non-timed text (USLT). Modern mobile players (e.g., Samsung Music, Musixmatch) require a specific, time-coded format known as SYLT (Synchronized Lyrics/Text). This project directly solves this problem by correctly generating and embedding a valid SYLT frame, ensuring universal compatibility and a professional user experience.
+2. User Journey & Functional Features
+The user experience is designed as a simple, guided three-step wizard:
+Step 1: Effortless Upload & AI Processing
+Feature: Intelligent Upload Interface: The user journey begins with a clean, intuitive interface where they can drag and drop their audio file (MP3, WAV, M4A). There is no need to upload a separate text file.
+Feature: Automated AI Processing: Upon clicking the "Start Syncing" button, the application initiates the core AI pipeline, providing the user with a clear progress bar and status updates:
+Transcription: The AI engine listens to the audio file and accurately converts all spoken or sung words into written text.
+Precision Alignment: This is the most critical step. The AI then determines the exact timing for every single word (start and end timestamps in milliseconds). This granular data is the foundation for all subsequent features.
+Step 2: Interactive Review & Customization (The Control Panel)
+Instead of immediate export, the user is presented with a powerful control panel to apply the perfect human touch.
+Feature: Synchronized Text Editor: The transcribed text is displayed in a simple editor. The user can easily correct any rare spelling mistakes made by the AI, ensuring 100% accuracy in the final output.
+Feature: Video Style Customization: A dedicated section allows the user to design the visual aesthetic of their final video:
+Animation Style: A dropdown menu to select how the text appears (e.g., "Karaoke Style" word-by-word highlighting, "Pop-up Word" effect, "Line-by-Line" reveal).
+Color Palette: Color pickers to define the text color, highlight color, and video background (solid color or image).
+Typography: A selection of fonts and a size slider to give the video a unique brand identity.
+Step 3: Final Export
+Once the user is satisfied with the text and styling, they can export their final product with a single click.
+Feature: Embedded Audio Export (MP3):
+The application takes the precise timing data and formats it into a valid SYLT frame with UTF-16 encoding.
+It then embeds this frame directly into a new copy of the original MP3 file, preserving all other metadata (like album art).
+Result: An MP3 file that plays perfectly on mobile devices, with lyrics that appear and scroll in sync with the audio.
+Feature: Visual Video Export (MP4):
+The application uses the timing data and the user's custom style choices.
+It programmatically renders a high-quality (HD or Full HD) video file where the text animates in perfect synchronization with the audio.
+Result: A professional-grade lyrics video, ready for sharing on YouTube, Instagram, or any other video platform.
+3. Core Technologies & Key Libraries (The Project's Backbone)
+The technology stack is chosen for power, specialization, and efficiency.
+For the User Interface (UI Framework):
+Streamlit: The ideal library for this project. It allows for the rapid development of a beautiful, interactive web interface using only Python, dramatically accelerating the development cycle.
+For the AI Core (Transcription & Synchronization):
+OpenAI Whisper: This is the single most important library in the entire project. It is chosen because it excels at this specific task.
+Why It's the Best Choice: Whisper doesn't just transcribe audio to text; its core strength is providing highly accurate word-level timestamps out of the box. This means it handles both transcription and alignment in one powerful step, eliminating the need for complex and less accurate external alignment tools.
+For Video Generation:
+MoviePy: The gold-standard Python library for programmatic video editing and creation. It provides the flexibility needed to control every frame, place text, set timings, and apply custom animations.
+For Audio & Metadata Manipulation (MP3 Embedding):
+Mutagen: A specialized library for handling audio metadata. It will be used for one critical task: correctly constructing the SYLT frame and embedding it into the final MP3 file to ensure mobile compatibility.
