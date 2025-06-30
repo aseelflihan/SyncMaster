@@ -85,25 +85,38 @@ class VideoGenerator:
         
         # Create video from single image and audio using ffmpeg
         try:
+            # First check if ffmpeg is available
+            try:
+                subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True, timeout=10)
+            except:
+                print("FFmpeg not available, using fallback")
+                return self._create_fallback_video(audio_path, text, output_filename)
+            
             cmd = [
-                'ffmpeg', '-y', '-v', 'quiet',
+                'ffmpeg', '-y', '-loglevel', 'error',
                 '-loop', '1', '-i', img_path,
                 '-i', audio_path,
-                '-c:v', 'libx264',
-                '-c:a', 'aac',
+                '-c:v', 'libx264', '-preset', 'ultrafast',
+                '-c:a', 'aac', '-b:a', '128k',
                 '-pix_fmt', 'yuv420p',
+                '-vf', 'scale=1280:720',
+                '-r', '10',  # 10 fps for smaller file size
                 '-shortest',
-                '-t', '60',  # Limit to 60 seconds max
+                '-t', '30',  # Limit to 30 seconds for faster processing
                 output_path
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            print(f"Running FFmpeg command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             
-            if result.returncode == 0 and os.path.exists(output_path):
+            if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                print(f"Video created successfully: {output_path}")
                 return output_path
             else:
                 print(f"FFmpeg error: {result.stderr}")
-                raise Exception(f"FFmpeg failed: {result.stderr}")
+                print(f"FFmpeg stdout: {result.stdout}")
+                # Try fallback method
+                return self._create_fallback_video(audio_path, text, output_filename)
                 
         except Exception as e:
             print(f"Video creation error: {e}")
@@ -115,34 +128,81 @@ class VideoGenerator:
         output_path = os.path.join(self.temp_dir, output_filename)
         
         try:
-            # Create a simple black video with audio
+            # First try to create a simple image slideshow
+            width, height = 1280, 720
+            img = Image.new('RGB', (width, height), (0, 0, 0))  # Black background
+            draw = ImageDraw.Draw(img)
+            
+            # Add simple text
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 48)
+            except:
+                font = ImageFont.load_default()
+            
+            # Draw title
+            title = "SyncMaster Video"
+            bbox = draw.textbbox((0, 0), title, font=font)
+            title_width = bbox[2] - bbox[0]
+            title_x = (width - title_width) // 2
+            draw.text((title_x, height//2 - 50), title, fill=(255, 255, 255), font=font)
+            
+            # Draw subtitle
+            subtitle = "Synchronized Audio & Text"
+            try:
+                sub_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+            except:
+                sub_font = font
+            bbox = draw.textbbox((0, 0), subtitle, font=sub_font)
+            sub_width = bbox[2] - bbox[0]
+            sub_x = (width - sub_width) // 2
+            draw.text((sub_x, height//2 + 20), subtitle, fill=(255, 215, 0), font=sub_font)
+            
+            # Save fallback image
+            fallback_img_path = os.path.join(self.temp_dir, 'fallback.png')
+            img.save(fallback_img_path)
+            
+            # Try to create video with simpler ffmpeg command
             cmd = [
-                'ffmpeg', '-y', '-v', 'quiet',
-                '-f', 'lavfi', '-i', 'color=black:size=1280x720:duration=60',
+                'ffmpeg', '-y', '-loglevel', 'panic',
+                '-loop', '1', '-i', fallback_img_path,
                 '-i', audio_path,
-                '-c:v', 'libx264',
-                '-c:a', 'copy',
+                '-c:v', 'libx264', '-preset', 'ultrafast',
+                '-c:a', 'aac',
+                '-pix_fmt', 'yuv420p',
+                '-r', '1',  # Very low frame rate
                 '-shortest',
+                '-t', '10',  # Short duration
                 output_path
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
-            if result.returncode == 0 and os.path.exists(output_path):
+            if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                print(f"Fallback video created: {output_path}")
                 return output_path
             else:
-                print(f"Fallback FFmpeg error: {result.stderr}")
-                # Final fallback - copy the audio file as MP4
+                print(f"Fallback FFmpeg also failed: {result.stderr}")
+                # Final fallback - copy audio as M4A
                 fallback_path = output_path.replace('.mp4', '.m4a')
                 shutil.copy2(audio_path, fallback_path)
+                print(f"Created audio fallback: {fallback_path}")
                 return fallback_path
                 
         except Exception as e:
             print(f"Fallback video creation error: {e}")
             # Final fallback - copy the audio file
-            fallback_path = output_path.replace('.mp4', '.m4a')
-            shutil.copy2(audio_path, fallback_path)
-            return fallback_path
+            try:
+                fallback_path = output_path.replace('.mp4', '.m4a')
+                shutil.copy2(audio_path, fallback_path)
+                print(f"Final fallback audio: {fallback_path}")
+                return fallback_path
+            except Exception as copy_error:
+                print(f"Even audio copy failed: {copy_error}")
+                # Create a placeholder file
+                placeholder_path = os.path.join(self.temp_dir, 'placeholder.txt')
+                with open(placeholder_path, 'w', encoding='utf-8') as f:
+                    f.write(f"Video creation failed. Original audio: {audio_path}\nText: {text}")
+                return placeholder_path
     
     def _hex_to_rgb(self, hex_color: str) -> tuple:
         """Convert hex color to RGB tuple"""

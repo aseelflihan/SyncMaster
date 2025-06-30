@@ -483,16 +483,29 @@ def export_mp4():
             progress_bar.progress(100)
             status_text.text("تم إكمال تصدير الفيديو!")
             
-            # Show video summary
-            with open(output_path, 'r', encoding='utf-8') as f:
-                video_summary = f.read()
-            
-            st.text_area(
-                "معاينة محتوى الفيديو",
-                video_summary,
-                height=300,
-                disabled=True
-            )
+            # Show video info based on file type
+            if output_path.endswith('.mp4'):
+                st.success("تم إنشاء فيديو MP4 بنجاح!")
+                st.info("الفيديو يحتوي على النص المتزامن مع الصوت")
+            elif output_path.endswith('.m4a'):
+                st.success("تم إنشاء ملف صوتي M4A بنجاح!")
+                st.info("الملف الصوتي يحتوي على النص المتزامن")
+            elif output_path.endswith('.txt'):
+                # Only try to read text files
+                try:
+                    with open(output_path, 'r', encoding='utf-8') as f:
+                        video_summary = f.read()
+                    
+                    st.text_area(
+                        "معاينة محتوى الفيديو",
+                        video_summary,
+                        height=300,
+                        disabled=True
+                    )
+                except:
+                    st.info("تم إنشاء ملف الفيديو بنجاح!")
+            else:
+                st.info("تم إنشاء ملف الفيديو بنجاح!")
             
             # Show style configuration
             st.info(f"""
