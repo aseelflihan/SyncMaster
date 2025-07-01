@@ -10,75 +10,67 @@ from mp3_embedder import MP3Embedder
 from utils import format_timestamp, validate_audio_file, get_audio_info
 
 # Page configuration
-# This is safe to keep in the global scope
 st.set_page_config(
     page_title="SyncMaster - AI Audio-Text Synchronization",
     page_icon="🎵",
     layout="wide"
 )
 
-# --- All other logic is now moved inside main() ---
+# Initialize session state
+if 'step' not in st.session_state:
+    st.session_state.step = 1
+if 'audio_file' not in st.session_state:
+    st.session_state.audio_file = None
+if 'transcription_data' not in st.session_state:
+    st.session_state.transcription_data = None
+if 'edited_text' not in st.session_state:
+    st.session_state.edited_text = ""
+if 'video_style' not in st.session_state:
+    st.session_state.video_style = {
+        'animation_style': 'Karaoke Style',
+        'text_color': '#FFFFFF',
+        'highlight_color': '#FFD700',
+        'background_color': '#000000',
+        'font_family': 'Arial',
+        'font_size': 48
+    }
+
+if not hasattr(st, "divider"):
+    def _divider():
+        st.markdown("---")
+    st.divider = _divider
+
+# Patch st.button for Streamlit versions that don't support the 'type' argument (<=1.12)
+import inspect as _st_inspect
+if "type" not in _st_inspect.signature(st.button).parameters:
+    _orig_button = st.button
+
+    def _patched_button(label, *args, **kwargs):
+        # Remove kwargs not supported in this Streamlit version
+        kwargs.pop("type", None)
+        kwargs.pop("use_container_width", None)
+        return _orig_button(label, *args, **kwargs)
+
+    st.button = _patched_button
+
+# Provide st.rerun alias for older Streamlit versions
+if not hasattr(st, "rerun") and hasattr(st, "experimental_rerun"):
+    st.rerun = st.experimental_rerun
+
+# Patch st.download_button for unsupported kwargs in older Streamlit versions
+if hasattr(st, "download_button"):
+    import inspect as _dl_inspect
+    _dl_sig = _dl_inspect.signature(st.download_button)
+    if "use_container_width" not in _dl_sig.parameters:
+        _orig_download_button = st.download_button
+
+        def _patched_download_button(label, data, *args, **kwargs):
+            kwargs.pop("use_container_width", None)
+            return _orig_download_button(label, data, *args, **kwargs)
+
+        st.download_button = _patched_download_button
 
 def main():
-    """
-    Main function to run the Streamlit app.
-    All initialization and logic starts here.
-    """
-    # --- Start of Moved Code ---
-    
-    # Initialize session state (moved here for safety)
-    if 'step' not in st.session_state:
-        st.session_state.step = 1
-    if 'audio_file' not in st.session_state:
-        st.session_state.audio_file = None
-    if 'transcription_data' not in st.session_state:
-        st.session_state.transcription_data = None
-    if 'edited_text' not in st.session_state:
-        st.session_state.edited_text = ""
-    if 'video_style' not in st.session_state:
-        st.session_state.video_style = {
-            'animation_style': 'Karaoke Style',
-            'text_color': '#FFFFFF',
-            'highlight_color': '#FFD700',
-            'background_color': '#000000',
-            'font_family': 'Arial',
-            'font_size': 48
-        }
-
-    # Patches and Polyfills for compatibility (moved here for safety)
-    if not hasattr(st, "divider"):
-        def _divider():
-            st.markdown("---")
-        st.divider = _divider
-
-    import inspect as _st_inspect
-    if "type" not in _st_inspect.signature(st.button).parameters:
-        _orig_button = st.button
-
-        def _patched_button(label, *args, **kwargs):
-            kwargs.pop("type", None)
-            kwargs.pop("use_container_width", None)
-            return _orig_button(label, *args, **kwargs)
-
-        st.button = _patched_button
-
-    if not hasattr(st, "rerun") and hasattr(st, "experimental_rerun"):
-        st.rerun = st.experimental_rerun
-
-    if hasattr(st, "download_button"):
-        import inspect as _dl_inspect
-        _dl_sig = _dl_inspect.signature(st.download_button)
-        if "use_container_width" not in _dl_sig.parameters:
-            _orig_download_button = st.download_button
-
-            def _patched_download_button(label, data, *args, **kwargs):
-                kwargs.pop("use_container_width", None)
-                return _orig_download_button(label, data, *args, **kwargs)
-
-            st.download_button = _patched_download_button
-    
-    # --- End of Moved Code ---
-
     # Header
     st.title("🎵 SyncMaster")
     st.markdown("### The Intelligent Audio-Text Synchronization Platform")
@@ -211,7 +203,7 @@ def process_audio():
         
     except Exception as e:
         st.error(f"Error processing audio: {str(e)}")
-        if 'tmp_file_path' in locals() and os.path.exists(tmp_file_path):
+        if 'tmp_file_path' in locals():
             os.unlink(tmp_file_path)
 
 def step_2_review_and_customize():
@@ -308,15 +300,14 @@ def step_2_review_and_customize():
         st.markdown(preview_html, unsafe_allow_html=True)
     
     # Navigation buttons
-    st.divider()
-    nav_cols = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    with nav_cols[0]:
+    with col1:
         if st.button("← Back to Upload"):
             st.session_state.step = 1
             st.rerun()
     
-    with nav_cols[2]:
+    with col3:
         if st.button("Continue to Export →", type="primary"):
             st.session_state.step = 3
             st.rerun()
@@ -355,8 +346,10 @@ def step_3_export():
             st.rerun()
         return
     
+    # Add preview section
     st.subheader("📋 Preview & Verification")
     
+    # Show audio info
     audio_path = st.session_state.transcription_data['audio_path']
     word_timestamps = st.session_state.transcription_data['word_timestamps']
     
@@ -366,16 +359,17 @@ def step_3_export():
         st.metric("Total Words", len(word_timestamps))
     
     with col2:
-        if word_timestamps and get_audio_duration_seconds(audio_path) > 0:
+        if word_timestamps:
             avg_word_duration = sum(w['end'] - w['start'] for w in word_timestamps) / len(word_timestamps)
             st.metric("Avg Word Duration", f"{avg_word_duration:.2f}s")
             st.metric("Words per Minute", f"{len(word_timestamps) / (get_audio_duration_seconds(audio_path) / 60):.0f}")
     
+    # Preview synchronized text with timestamps
     st.markdown("**Synchronized Text Preview:**")
     preview_container = st.container()
     with preview_container:
         preview_text = ""
-        for i, word_data in enumerate(word_timestamps[:20]):
+        for i, word_data in enumerate(word_timestamps[:20]):  # Show first 20 words
             timestamp = f"[{word_data['start']:.1f}s]"
             preview_text += f"{timestamp} {word_data['word']} "
         if len(word_timestamps) > 20:
@@ -385,31 +379,32 @@ def step_3_export():
     st.divider()
     
     # Export options
-    export_col1, export_col2 = st.columns(2)
+    col1, col2 = st.columns(2)
     
-    with export_col1:
+    with col1:
         st.subheader("🎵 MP3 Export")
         st.markdown("Export MP3 with embedded synchronized lyrics (SYLT) for mobile compatibility")
         
         if st.button("📱 Export MP3 with Lyrics", type="primary", use_container_width=True):
             export_mp3()
     
-    with export_col2:
+    with col2:
         st.subheader("🎬 MP4 Video Export")
         st.markdown("Create an animated video with synchronized text")
         
         if st.button("🎥 Generate Video Summary", type="primary", use_container_width=True):
             export_mp4()
     
+    # Navigation
     st.divider()
-    nav_cols = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    with nav_cols[0]:
+    with col1:
         if st.button("← Back to Customize"):
             st.session_state.step = 2
             st.rerun()
     
-    with nav_cols[2]:
+    with col3:
         if st.button("🔄 Start Over"):
             reset_session()
             st.rerun()
@@ -417,14 +412,23 @@ def step_3_export():
 def export_mp3():
     """Export MP3 file with embedded SYLT lyrics"""
     try:
-        progress_bar = st.progress(0, text="Preparing MP3 with synchronized lyrics...")
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
+        status_text.text("تحضير ملف MP3 مع الكلمات المتزامنة...")
+        progress_bar.progress(20)
+        
+        # Initialize MP3 embedder
         embedder = MP3Embedder()
+        
+        # Prepare lyrics data
         word_timestamps = st.session_state.transcription_data['word_timestamps']
         audio_path = st.session_state.transcription_data['audio_path']
         
-        progress_bar.progress(50, text="Embedding SYLT frame for mobile compatibility...")
+        progress_bar.progress(50)
+        status_text.text("دمج إطار SYLT للتوافق مع الهواتف المحمولة...")
         
+        # Create output file
         output_filename = f"synced_{st.session_state.audio_file.name}"
         output_path = embedder.embed_sylt_lyrics(
             audio_path, 
@@ -433,50 +437,68 @@ def export_mp3():
             output_filename
         )
         
-        progress_bar.progress(90, text="MP3 export complete!")
+        progress_bar.progress(90)
+        status_text.text("تم إكمال تصدير MP3!")
         
-        st.subheader("MP3 File Preview")
+        # Audio preview section
+        st.subheader("معاينة الملف الصوتي")
         
         if os.path.exists(output_path):
-            file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
-            st.info(f"File size: {file_size_mb:.2f} MB")
+            # Show file size
+            file_size = os.path.getsize(output_path)
+            file_size_mb = file_size / (1024 * 1024)
+            st.info(f"حجم الملف: {file_size_mb:.2f} MB")
             
+            # Audio player for preview
             with open(output_path, 'rb') as audio_file:
                 audio_bytes = audio_file.read()
                 st.audio(audio_bytes, format='audio/mp3')
             
+            # Verification info
             verification = embedder.verify_sylt_embedding(output_path)
             if verification['has_sylt']:
-                st.success(f"Successfully embedded {verification['sylt_entries']} synchronized words!")
+                st.success(f"تم دمج {verification['sylt_entries']} كلمة متزامنة بنجاح!")
             else:
-                st.warning("Warning: Could not verify SYLT embedding.")
+                st.warning("تحذير: قد تكون هناك مشكلة في دمج الكلمات المتزامنة")
             
+            # Download button
             st.download_button(
-                label="Download Synced MP3",
+                label="تحميل ملف MP3 المتزامن",
                 data=audio_bytes,
                 file_name=output_filename,
                 mime="audio/mpeg",
                 use_container_width=True
             )
+            
             progress_bar.progress(100)
+            st.success("تم تصدير MP3 بنجاح! الملف يحتوي على كلمات متزامنة متوافقة مع مشغلات الهواتف المحمولة.")
         else:
-            st.error("Failed to create the MP3 file.")
+            st.error("فشل في إنشاء ملف MP3.")
             
     except Exception as e:
-        st.error(f"Error exporting MP3: {str(e)}")
+        st.error(f"خطأ في تصدير MP3: {str(e)}")
 
 def export_mp4():
     """Export MP4 video with synchronized text animation"""
     try:
-        progress_bar = st.progress(0, text="Creating synchronized video...")
-
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        status_text.text("إنشاء فيديو متزامن...")
+        progress_bar.progress(20)
+        
+        # Initialize video generator
         generator = VideoGenerator()
+        
+        # Prepare video data
         word_timestamps = st.session_state.transcription_data['word_timestamps']
         audio_path = st.session_state.transcription_data['audio_path']
         video_style = st.session_state.video_style
         
-        progress_bar.progress(40, text="Applying custom style...")
-
+        progress_bar.progress(40)
+        status_text.text("تطبيق التصميم المخصص...")
+        
+        # Generate synchronized video
         output_filename = f"synced_video_{Path(st.session_state.audio_file.name).stem}.mp4"
         output_path = generator.create_synchronized_video(
             audio_path,
@@ -486,41 +508,141 @@ def export_mp4():
             output_filename
         )
         
-        progress_bar.progress(80, text="Finalizing video...")
+        progress_bar.progress(80)
+        status_text.text("إنهاء معالجة الفيديو...")
         
-        st.subheader("Video Preview")
+        # Video preview section
+        st.subheader("معاينة الفيديو")
         
         if os.path.exists(output_path):
-            progress_bar.progress(100, text="Video export complete!")
+            progress_bar.progress(100)
+            status_text.text("تم إكمال تصدير الفيديو!")
             
-            st.success("Video generated successfully!")
+            # Show video info based on file type
+            if output_path.endswith('.mp4'):
+                st.success("تم إنشاء فيديو MP4 بنجاح!")
+                st.info("الفيديو يحتوي على النص المتزامن مع الصوت")
+            elif output_path.endswith('.m4a'):
+                st.success("تم إنشاء ملف صوتي M4A بنجاح!")
+                st.info("الملف الصوتي يحتوي على النص المتزامن")
+            elif output_path.endswith('.txt'):
+                # Only try to read text files
+                try:
+                    with open(output_path, 'r', encoding='utf-8') as f:
+                        video_summary = f.read()
+                    
+                    st.text_area(
+                        "معاينة محتوى الفيديو",
+                        video_summary,
+                        height=300,
+                        disabled=True
+                    )
+                except:
+                    st.info("تم إنشاء ملف الفيديو بنجاح!")
+            else:
+                st.info("تم إنشاء ملف الفيديو بنجاح!")
             
-            # Show video style info
-            with st.expander("Show Video Style Configuration"):
-                st.json(video_style)
+            # Show style configuration
+            st.info(f"""
+            **إعدادات الفيديو:**
+            - نمط الحركة: {video_style.get('animation_style', 'غير محدد')}
+            - لون النص: {video_style.get('text_color', 'غير محدد')}
+            - لون التمييز: {video_style.get('highlight_color', 'غير محدد')}
+            - لون الخلفية: {video_style.get('background_color', 'غير محدد')}
+            - خط النص: {video_style.get('font_family', 'غير محدد')}
+            - حجم الخط: {video_style.get('font_size', 'غير محدد')}
+            """)
             
-            # Provide download button
-            with open(output_path, 'rb') as file:
-                st.download_button(
-                    label="Download Video (MP4)",
-                    data=file.read(),
-                    file_name=output_filename,
-                    mime="video/mp4",
-                    use_container_width=True
-                )
+            # Download button
+            if output_path.endswith('.mp4'):
+                # Download MP4 video file
+                with open(output_path, 'rb') as file:
+                    st.download_button(
+                        label="تحميل الفيديو MP4",
+                        data=file.read(),
+                        file_name=output_filename,
+                        mime="video/mp4",
+                        use_container_width=True
+                    )
+            elif output_path.endswith('.m4a'):
+                # Download M4A audio file  
+                with open(output_path, 'rb') as file:
+                    st.download_button(
+                        label="تحميل ملف الصوت M4A",
+                        data=file.read(),
+                        file_name=output_filename.replace('.mp4', '.m4a'),
+                        mime="audio/mp4",
+                        use_container_width=True
+                    )
+            else:
+                # Download text file
+                with open(output_path, 'r', encoding='utf-8') as file:
+                    file_content = file.read()
+                    st.download_button(
+                        label="تحميل ملخص الفيديو",
+                        data=file_content.encode('utf-8'),
+                        file_name=output_filename,
+                        mime="text/plain",
+                        use_container_width=True
+                    )
+            
+            if output_path.endswith('.mp4'):
+                st.success("تم إنشاء الفيديو بنجاح! يمكنك الآن تحميل ملف MP4 مع النص المتزامن.")
+            elif output_path.endswith('.m4a'):
+                st.success("تم إنشاء ملف صوتي مع النص المتزامن! يمكنك تحميل ملف M4A.")
+            else:
+                st.success("تم إنشاء ملخص الفيديو بنجاح!")
+            
+            # Show sample preview of how video would look
+            st.markdown("**معاينة كيف سيبدو الفيديو:**")
+            
+            # Create a visual preview using HTML/CSS
+            preview_html = f"""
+            <div style="
+                background: {video_style.get('background_color', '#000000')};
+                color: {video_style.get('text_color', '#FFFFFF')};
+                font-family: {video_style.get('font_family', 'Arial')};
+                font-size: {video_style.get('font_size', 48) // 3}px;
+                padding: 30px;
+                text-align: center;
+                border-radius: 10px;
+                margin: 20px 0;
+                min-height: 200px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                border: 2px solid #ddd;
+            ">
+                <div style="margin-bottom: 20px; font-size: 14px; color: #888;">معاينة الفيديو</div>
+                <div>
+                    {' '.join([w['word'] for w in word_timestamps[:8]])}
+                </div>
+                <div style="margin-top: 10px;">
+                    <span style="color: {video_style.get('highlight_color', '#FFD700')}; font-weight: bold;">
+                        {word_timestamps[0]['word'] if word_timestamps else 'كلمة'}
+                    </span>
+                </div>
+                <div style="margin-top: 20px; font-size: 12px; color: #666;">
+                    نمط الحركة: {video_style.get('animation_style', 'Karaoke Style')}
+                </div>
+            </div>
+            """
+            st.markdown(preview_html, unsafe_allow_html=True)
+            
         else:
-            st.error("Failed to create the video file.")
+            st.error("فشل في إنشاء ملف الفيديو.")
             
     except Exception as e:
-        st.error(f"Error exporting video: {str(e)}")
+        st.error(f"خطأ في تصدير الفيديو: {str(e)}")
 
 def get_audio_duration_seconds(audio_path: str) -> float:
     """Get audio duration in seconds"""
     try:
         audio_info = get_audio_info(audio_path)
-        return audio_info.get('duration', 0.0)
+        return audio_info.get('duration', 0)
     except:
-        return 0.0
+        return 0
 
 def get_audio_duration_formatted(audio_path: str) -> str:
     """Get formatted audio duration"""
@@ -531,23 +653,9 @@ def get_audio_duration_formatted(audio_path: str) -> str:
 
 def reset_session():
     """Reset all session state variables"""
-    # Preserve step to avoid immediate reset loop, or handle it carefully
-    current_step = st.session_state.get('step', 1)
-    
-    # Clean up temporary files if they exist
-    if 'transcription_data' in st.session_state and st.session_state.transcription_data:
-        audio_path = st.session_state.transcription_data.get('audio_path')
-        if audio_path and os.path.exists(audio_path):
-            try:
-                os.unlink(audio_path)
-            except OSError as e:
-                st.warning(f"Could not delete temp file {audio_path}: {e}")
-
-    # Reset all keys
     for key in list(st.session_state.keys()):
-        del st.session_state[key]
-        
-    # Re-initialize the app state
+        if key not in ['step']:
+            del st.session_state[key]
     st.session_state.step = 1
     st.session_state.audio_file = None
     st.session_state.transcription_data = None
@@ -561,6 +669,5 @@ def reset_session():
         'font_size': 48
     }
 
-# Entry point of the app
 if __name__ == "__main__":
     main()
