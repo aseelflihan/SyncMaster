@@ -1,9 +1,4 @@
 import streamlit as st
-st.title("SyncMaster")
-st.write("تم تشغيل التطبيق بنجاح ✅")
-'''
-
-import streamlit as st
 import os
 import tempfile
 import json
@@ -13,7 +8,6 @@ from audio_processor import AudioProcessor
 from video_generator import VideoGenerator
 from mp3_embedder import MP3Embedder
 from utils import format_timestamp, validate_audio_file, get_audio_info
-
 
 # Page configuration
 st.set_page_config(
@@ -677,4 +671,3 @@ def reset_session():
 
 if __name__ == "__main__":
     main()
-'''
