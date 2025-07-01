@@ -1,4 +1,13 @@
 import streamlit as st
+
+st.set_page_config(layout="wide")
+
+st.title("SyncMaster Test")
+st.success("التطبيق يعمل بنجاح على Streamlit Cloud!")
+st.balloons()
+
+'''
+import streamlit as st
 import os
 import tempfile
 import json
@@ -671,3 +680,5 @@ def reset_session():
 
 if __name__ == "__main__":
     main()
+
+    '''
