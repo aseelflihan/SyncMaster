@@ -1,8 +1,11 @@
 import streamlit as st
 
+st.set_page_config(layout="wide")
+
 st.title("اختبار تشغيل")
 st.success("التطبيق يعمل بنجاح!")
 st.balloons()
+
 
 '''
 import streamlit as st
