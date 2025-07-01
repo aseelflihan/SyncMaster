@@ -1,9 +1,7 @@
 import streamlit as st
 
-st.set_page_config(layout="wide")
-
-st.title("SyncMaster Test")
-st.success("التطبيق يعمل بنجاح على Streamlit Cloud!")
+st.title("اختبار تشغيل")
+st.success("التطبيق يعمل بنجاح!")
 st.balloons()
 
 '''
